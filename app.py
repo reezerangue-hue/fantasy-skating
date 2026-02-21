@@ -679,7 +679,7 @@ def results():
             current_segment = segment
             rows_html += f'<tr class="segment-header"><td colspan="4">{segment}</td></tr>'
         place_class = f"place-{place}" if place <= 3 else ""
-        rows_html += f'<tr class="{place_class}"><td>{place}</td><td>{name}</td><td>{nation}</td><td>{score}</td></tr>'
+        rows_html += f'<tr class="{place_class}"><td>{place}</td><td><a href="/skater/{name}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'\'">{name}</a></td><td>{nation}</td><td>{score}</td></tr>'
 
     return f"""<!DOCTYPE html><html><head><title>Results</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -792,7 +792,7 @@ def roster():
         for c in ["Men", "Women", "Pairs", "Ice Dance"]
     ])
     rows_html = "".join([
-        f'<tr><td>{name}</td><td>{nation}</td><td>{best_score or "—"}</td><td><span class="cost-badge">{cost} pts</span></td></tr>'
+        f'<tr><td><a href="/skater/{name}" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'var(--text)\'">{name}</a></td><td>{nation}</td><td>{best_score or "—"}</td><td><span class="cost-badge">{cost} pts</span></td></tr>'
         for name, nation, category, best_score, cost in skaters if category == selected_cat and best_score and best_score > 0
     ])
     return f"""<!DOCTYPE html><html><head><title>Skater Roster</title>{STYLE}</head>
@@ -1039,6 +1039,100 @@ def team():
         </div>
     </div>
     </body></html>"""
+
+@app.route("/skater/<name>")
+def skater_profile(name):
+    user_id, username = current_user()
+    conn = get_db()
+
+    info = conn.execute(
+        "SELECT category, nation, best_score, cost FROM skater_costs WHERE name=?", (name,)
+    ).fetchone()
+
+    if not info:
+        conn.close()
+        return f"""<!DOCTYPE html><html><head><title>Skater Not Found</title>{STYLE}</head>
+        <body>{nav(user_id, username)}
+        <div class="page"><h1>Skater Not Found</h1>
+        <p class="subtitle">No data found for "{name}".</p>
+        <a href="/roster" class="btn btn-outline">Back to Roster</a>
+        </div></body></html>""", 404
+
+    category, nation, best_score, cost = info
+
+    results = conn.execute("""
+        SELECT competition, segment, place, score
+        FROM results2
+        WHERE name=?
+        ORDER BY competition, segment
+    """, (name,)).fetchall()
+    conn.close()
+
+    # Group results by competition
+    by_comp = {}
+    for comp, segment, place, score in results:
+        if comp not in by_comp:
+            by_comp[comp] = []
+        by_comp[comp].append((segment, place, score))
+
+    comp_count = len(by_comp)
+    wins = sum(1 for rows in by_comp.values() for seg, pl, sc in rows if pl == 1 and seg in ("Free Skating", "Free Dance"))
+    podiums = sum(1 for rows in by_comp.values() for seg, pl, sc in rows if pl <= 3 and seg in ("Free Skating", "Free Dance"))
+
+    comp_rows = ""
+    for comp, rows in by_comp.items():
+        for segment, place, score in rows:
+            place_class = f"place-{place}" if place <= 3 else ""
+            comp_rows += f'<tr class="{place_class}"><td>{comp}</td><td>{segment}</td><td>{place}</td><td>{score}</td></tr>'
+
+    stats_html = f"""
+    <div style="display:flex;gap:16px;margin-bottom:32px;flex-wrap:wrap;">
+        <div class="stat-card" style="padding:20px 28px;flex:1;min-width:120px;">
+            <div class="stat-number" style="font-size:2em;">{cost}</div>
+            <div class="stat-label">Draft Cost (pts)</div>
+        </div>
+        <div class="stat-card" style="padding:20px 28px;flex:1;min-width:120px;">
+            <div class="stat-number" style="font-size:2em;">{comp_count}</div>
+            <div class="stat-label">Competitions</div>
+        </div>
+        <div class="stat-card" style="padding:20px 28px;flex:1;min-width:120px;">
+            <div class="stat-number" style="font-size:2em;">{wins}</div>
+            <div class="stat-label">Wins</div>
+        </div>
+        <div class="stat-card" style="padding:20px 28px;flex:1;min-width:120px;">
+            <div class="stat-number" style="font-size:2em;">{podiums}</div>
+            <div class="stat-label">Podiums</div>
+        </div>
+        <div class="stat-card" style="padding:20px 28px;flex:1;min-width:120px;">
+            <div class="stat-number" style="font-size:2em;">{best_score or "—"}</div>
+            <div class="stat-label">Best Free Score</div>
+        </div>
+    </div>"""
+
+    no_results = '<tr><td colspan="4" class="no-data">No competition results found.</td></tr>' if not comp_rows else ""
+
+    return f"""<!DOCTYPE html><html><head><title>{name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    {STYLE}</head>
+    <body>{nav(user_id, username)}
+    <div class="page">
+        <p class="subtitle" style="margin-bottom:8px;">
+            <a href="/roster" style="color:var(--text-dim);text-decoration:none;">Roster</a>
+            <span style="color:var(--text-dim);"> / {category}</span>
+        </p>
+        <h1>{name}</h1>
+        <p class="subtitle">{nation} &middot; {category}</p>
+        {stats_html}
+        <h2>Competition Results</h2>
+        <div class="card">
+            <table>
+                <thead><tr><th>Competition</th><th>Segment</th><th>Place</th><th>Score</th></tr></thead>
+                <tbody>{comp_rows}{no_results}</tbody>
+            </table>
+        </div>
+    </div>
+    </body></html>"""
+
 
 @app.route("/leaderboard")
 def leaderboard():
