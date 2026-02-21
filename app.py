@@ -15,6 +15,20 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+DEFAULT_AVATAR = '⛸️'
+
+def migrate_db():
+    conn = get_db()
+    for col, default in [("bio", "''"), ("avatar", "'⛸️'")]:
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
+            conn.commit()
+        except Exception:
+            pass
+    conn.close()
+
+migrate_db()
+
 _ISU_TO_ALPHA2 = {
     'ARM': 'AM', 'AUS': 'AU', 'AUT': 'AT', 'AZE': 'AZ', 'BEL': 'BE',
     'BUL': 'BG', 'CAN': 'CA', 'CHN': 'CN', 'CZE': 'CZ', 'ESP': 'ES',
@@ -134,7 +148,7 @@ def current_user():
 
 def nav(user_id, username):
     if user_id:
-        auth = f'<span class="nav-user">👤 {username}</span><a href="/logout" class="nav-link">Log Out</a>'
+        auth = f'<a href="/user/{username}" class="nav-user" style="text-decoration:none;">👤 {username}</a><a href="/logout" class="nav-link">Log Out</a>'
     else:
         auth = '<a href="/login" class="nav-link">Log In</a><a href="/register" class="nav-link">Register</a>'
     return f"""
@@ -576,6 +590,69 @@ STYLE = """
     .recent-card table { width: 100%; }
     .recent-card td { padding: 10px 18px; font-size: 0.88em; border-bottom: 1px solid rgba(255,255,255,0.04); }
     .recent-card tr:last-child td { border-bottom: none; }
+
+    .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        margin-bottom: 36px;
+        padding: 32px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(106, 180, 212, 0.15);
+        border-radius: 16px;
+    }
+
+    .profile-avatar-display {
+        font-size: 3.2em;
+        width: 86px;
+        height: 86px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(106, 180, 212, 0.1);
+        border-radius: 50%;
+        border: 2px solid rgba(106, 180, 212, 0.3);
+        flex-shrink: 0;
+    }
+
+    .avatar-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+
+    .avatar-option {
+        font-size: 1.5em;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(106, 180, 212, 0.2);
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+    }
+
+    .avatar-option:hover, .avatar-option.selected {
+        border-color: var(--ice-blue);
+        background: rgba(106, 180, 212, 0.15);
+    }
+
+    .edit-profile-form textarea {
+        width: 100%;
+        height: 90px;
+        resize: vertical;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(106, 180, 212, 0.25);
+        color: var(--text);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.9em;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .edit-profile-form textarea:focus { border-color: var(--ice-blue); }
 </style>
 """
 
@@ -1151,27 +1228,149 @@ def skater_profile(name):
     </body></html>"""
 
 
+@app.route("/user/<username>", methods=["GET", "POST"])
+def user_profile(username):
+    user_id, current_username = current_user()
+    conn = get_db()
+    user = conn.execute("SELECT id, bio, avatar FROM users WHERE username=?", (username,)).fetchone()
+    conn.close()
+
+    if not user:
+        return f"""<!DOCTYPE html><html><head><title>User Not Found</title>{STYLE}</head>
+        <body>{nav(user_id, current_username)}
+        <div class="page"><h1>User Not Found</h1>
+        <p class="subtitle">No user named "{username}".</p>
+        <a href="/leaderboard" class="btn btn-outline">Leaderboard</a>
+        </div></body></html>""", 404
+
+    profile_uid, bio, avatar = user[0], user[1] or "", user[2] or DEFAULT_AVATAR
+    is_own = user_id == profile_uid
+
+    if request.method == "POST" and is_own:
+        new_bio = request.form.get("bio", "").strip()[:300]
+        new_avatar = request.form.get("avatar", DEFAULT_AVATAR).strip()
+        if not new_avatar or len(new_avatar) > 20:
+            new_avatar = DEFAULT_AVATAR
+        conn = get_db()
+        conn.execute("UPDATE users SET bio=?, avatar=? WHERE id=?", (new_bio, new_avatar, user_id))
+        conn.commit()
+        conn.close()
+        return redirect(f"/user/{username}")
+
+    picks = get_team(profile_uid)
+    fantasy_points = get_fantasy_points(profile_uid)
+    total_pts = round(sum(fantasy_points.values()), 1)
+
+    picks_by_cat = {cat: (name, nation, cost) for cat, name, nation, cost in picks}
+    team_rows = ""
+    for category in ["Men", "Women", "Pairs", "Ice Dance"]:
+        if category in picks_by_cat:
+            name, nation, cost = picks_by_cat[category]
+            pts = fantasy_points.get(name, 0)
+            team_rows += f'<tr><td>{category}</td><td><a href="/skater/{name}" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'var(--text)\'">{name}</a></td><td>{flag(nation)}</td><td>{pts} pts</td></tr>'
+        else:
+            team_rows += f'<tr><td>{category}</td><td colspan="3" style="color:var(--text-dim);">No pick</td></tr>'
+
+    team_section = f"""
+    <div class="card">
+        <table>
+            <thead><tr><th>Discipline</th><th>Skater</th><th>Nation</th><th>Fantasy Pts</th></tr></thead>
+            <tbody>
+                {team_rows}
+                <tr class="total-row"><td colspan="3">Total</td><td>{total_pts} pts</td></tr>
+            </tbody>
+        </table>
+    </div>"""
+
+    if is_own:
+        edit_section = f"""
+        <h2 style="margin-top:44px;">Edit Profile</h2>
+        <form method="post" id="profile-form" class="edit-profile-form" style="margin-top:20px;">
+            <input type="hidden" name="avatar" id="avatar-input" value="{avatar}">
+            <p style="color:var(--text-dim);font-size:0.88em;margin-bottom:12px;font-weight:500;">AVATAR</p>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+                <div id="avatar-preview" style="font-size:2.8em;width:62px;height:62px;display:flex;align-items:center;justify-content:center;background:rgba(106,180,212,0.1);border-radius:50%;border:2px solid rgba(106,180,212,0.3);">{avatar}</div>
+                <button type="button" class="btn btn-outline btn-small" onclick="document.getElementById('picker-wrap').style.display=document.getElementById('picker-wrap').style.display==='none'?'block':'none'">Choose Emoji</button>
+            </div>
+            <div id="picker-wrap" style="display:none;margin-bottom:20px;">
+                <emoji-picker></emoji-picker>
+            </div>
+            <p style="color:var(--text-dim);font-size:0.88em;margin:4px 0 8px;font-weight:500;">BIO <span style="font-weight:400;">(max 300 chars)</span></p>
+            <textarea name="bio" maxlength="300" placeholder="Tell the league about yourself...">{bio}</textarea>
+            <br><br>
+            <button type="submit" class="btn">Save Profile</button>
+        </form>
+        <script type="module">
+            import 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
+            document.querySelector('emoji-picker').addEventListener('emoji-click', e => {{
+                const emoji = e.detail.unicode;
+                document.getElementById('avatar-input').value = emoji;
+                document.getElementById('avatar-preview').textContent = emoji;
+                document.getElementById('picker-wrap').style.display = 'none';
+            }});
+        </script>"""
+    else:
+        edit_section = ""
+
+    bio_display = bio if bio else '<span style="color:var(--text-dim);">No bio yet.</span>'
+
+    return f"""<!DOCTYPE html><html><head><title>{username}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    {STYLE}
+    <style>
+        emoji-picker {{
+            --background: #0f2044;
+            --border-color: rgba(106,180,212,0.2);
+            --button-active-background: rgba(106,180,212,0.2);
+            --button-hover-background: rgba(106,180,212,0.1);
+            --category-font-color: #7a9bb5;
+            --indicator-color: #6ab4d4;
+            --input-border-color: rgba(106,180,212,0.3);
+            --input-font-color: #e4eef5;
+            --input-placeholder-color: #7a9bb5;
+            --outline-color: #6ab4d4;
+            width: 100%;
+            max-width: 400px;
+        }}
+    </style>
+    </head>
+    <body>{nav(user_id, current_username)}
+    <div class="page">
+        <div class="profile-header">
+            <div class="profile-avatar-display">{avatar}</div>
+            <div style="flex:1;">
+                <h1 style="margin-bottom:8px;">{username}</h1>
+                <p style="color:var(--text-dim);line-height:1.6;font-size:0.95em;">{bio_display}</p>
+            </div>
+        </div>
+        <h2>Team &middot; <span style="color:var(--ice-blue);">{total_pts} pts</span></h2>
+        {team_section}
+        {edit_section}
+    </div>
+    </body></html>"""
+
+
 @app.route("/leaderboard")
 def leaderboard():
     user_id, username = current_user()
     conn = get_db()
-    users = conn.execute("SELECT id, username FROM users").fetchall()
+    users = conn.execute("SELECT id, username, avatar FROM users").fetchall()
     conn.close()
 
     scores = []
     for u in users:
-        uid, uname = u[0], u[1]
+        uid, uname, uavatar = u[0], u[1], u[2] or DEFAULT_AVATAR
         fp = get_fantasy_points(uid)
         total = round(sum(fp.values()), 1)
-        scores.append((uname, total))
+        scores.append((uname, uavatar, total))
 
-    scores.sort(key=lambda x: x[1], reverse=True)
+    scores.sort(key=lambda x: x[2], reverse=True)
 
     rows_html = ""
-    for i, (uname, pts) in enumerate(scores):
+    for i, (uname, uavatar, pts) in enumerate(scores):
         rank_class = f"rank-{i+1}" if i < 3 else ""
         medal = ["🥇", "🥈", "🥉"][i] if i < 3 else ""
-        rows_html += f'<tr><td class="leaderboard-rank {rank_class}">{medal} {i+1}</td><td>{uname}</td><td>{pts}</td></tr>'
+        rows_html += f'<tr><td class="leaderboard-rank {rank_class}">{medal} {i+1}</td><td><a href="/user/{uname}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'\'">{uavatar} {uname}</a></td><td>{pts}</td></tr>'
 
     if not rows_html:
         rows_html = '<tr><td colspan="3" class="no-data">No users yet!</td></tr>'
