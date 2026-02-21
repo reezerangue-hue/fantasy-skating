@@ -2,12 +2,16 @@ from flask import Flask, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 import json
+import os
 
 app = Flask(__name__)
-app.secret_key = "changethislater"
+app.secret_key = "hdlgeigleygrrei7485794egey"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "skating.db")
 
 def get_db():
-    conn = sqlite3.connect("skating.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -95,10 +99,7 @@ def get_stats():
 
 def get_latest_results():
     conn = get_db()
-    latest = conn.execute("""
-        SELECT competition FROM results2
-        ORDER BY rowid DESC LIMIT 1
-    """).fetchone()
+    latest = conn.execute("SELECT competition FROM results2 ORDER BY rowid DESC LIMIT 1").fetchone()
     if not latest:
         conn.close()
         return [], ""
@@ -272,6 +273,12 @@ STYLE = """
 
     .btn-outline:hover { background: rgba(106, 180, 212, 0.15); color: var(--white); }
 
+    .btn-small {
+        padding: 5px 12px;
+        font-size: 0.8em;
+        border-radius: 6px;
+    }
+
     .card {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(106, 180, 212, 0.15);
@@ -343,13 +350,13 @@ STYLE = """
     #budget-used.over-budget { color: #ff6b6b; }
     #budget-used.ok-budget { color: #6bffb8; }
 
-    .draft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
-
     .draft-section {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(106, 180, 212, 0.15);
         border-radius: 14px;
-        padding: 20px;
+        padding: 24px;
+        margin-bottom: 24px;
+        max-width: 600px;
     }
 
     .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -382,6 +389,35 @@ STYLE = """
 
     .error { color: #ff6b6b; font-size: 0.88em; margin-bottom: 14px; }
 
+    .swap-info {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(106, 180, 212, 0.08);
+        border: 1px solid rgba(106, 180, 212, 0.2);
+        border-radius: 10px;
+        padding: 12px 20px;
+        margin-bottom: 20px;
+        font-size: 0.95em;
+        color: var(--text-dim);
+    }
+
+    .swap-count { font-family: 'Playfair Display', serif; font-size: 1.3em; font-weight: 700; color: var(--ice-blue); }
+    .swap-count.low { color: #ffaa6b; }
+    .swap-count.none { color: #ff6b6b; }
+
+    .current-pick {
+        background: rgba(106, 180, 212, 0.08);
+        border: 1px solid rgba(106, 180, 212, 0.2);
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        font-size: 0.95em;
+        color: var(--text-dim);
+    }
+
+    .current-pick strong { color: var(--white); }
+
     .leaderboard-rank { font-family: 'Playfair Display', serif; font-size: 1.1em; font-weight: 700; color: var(--text-dim); }
     .rank-1 { color: var(--gold); }
     .rank-2 { color: #c0c0c0; }
@@ -399,7 +435,6 @@ STYLE = """
 
     .no-data { color: var(--text-dim); text-align: center; padding: 40px; font-size: 0.95em; }
 
-    /* LANDING PAGE */
     .hero {
         text-align: center;
         padding: 80px 40px 60px;
@@ -533,7 +568,6 @@ def landing():
     skater_count, comp_count, user_count, latest_comp = get_stats()
     recent_results, latest_comp_name = get_latest_results()
 
-    # Group recent results by category
     by_cat = {}
     for row in recent_results:
         cat = row[0]
@@ -556,12 +590,12 @@ def landing():
         """
 
     if user_id:
-        cta = f"""
-        <a href="/draft" class="btn btn-large">Edit My Team</a>
+        cta = """
+        <a href="/team" class="btn btn-large">My Team</a>
         <a href="/leaderboard" class="btn btn-large btn-outline">Leaderboard</a>
         """
     else:
-        cta = f"""
+        cta = """
         <a href="/register" class="btn btn-large">Get Started</a>
         <a href="/login" class="btn btn-large btn-outline">Log In</a>
         """
@@ -570,14 +604,12 @@ def landing():
     <link rel="preconnect" href="https://fonts.googleapis.com">
     {STYLE}</head>
     <body>{nav(user_id, username)}
-
     <div class="hero">
         <div class="hero-eyebrow">⛸ The 2025–26 Season is Live</div>
         <h1>Fantasy Figure<br>Skating</h1>
         <p class="hero-sub">Draft your team of elite figure skaters, earn points from real ISU competition results, and compete against friends all season long.</p>
         <div class="hero-cta">{cta}</div>
     </div>
-
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-number">{skater_count}</div>
@@ -589,10 +621,9 @@ def landing():
         </div>
         <div class="stat-card">
             <div class="stat-number">{user_count}</div>
-            <div class="stat-label">Leagues Members</div>
+            <div class="stat-label">League Members</div>
         </div>
     </div>
-
     <div class="section">
         <div class="section-title">How It Works</div>
         <div class="section-sub">Build your dream team in three simple steps</div>
@@ -614,7 +645,6 @@ def landing():
             </div>
         </div>
     </div>
-
     <div class="section">
         <div class="section-title">Latest Results</div>
         <div class="section-sub">{latest_comp_name}</div>
@@ -622,7 +652,6 @@ def landing():
         <br>
         <a href="/results" class="btn btn-outline">View All Results</a>
     </div>
-
     </body></html>"""
 
 @app.route("/results")
@@ -692,7 +721,7 @@ def register():
                 session["user_id"] = user[0]
                 session["username"] = uname
                 conn.close()
-                return redirect("/draft")
+                return redirect("/draft/Men")
             except sqlite3.IntegrityError:
                 error = "Username already taken."
             conn.close()
@@ -784,69 +813,123 @@ def roster():
     </div>
     </body></html>"""
 
-@app.route("/draft", methods=["GET", "POST"])
-def draft():
+@app.route("/draft")
+def draft_home():
+    user_id, username = current_user()
+    if not user_id:
+        return redirect("/login")
+    return redirect("/draft/Men")
+
+@app.route("/draft/<category>", methods=["GET", "POST"])
+def draft(category):
     user_id, username = current_user()
     if not user_id:
         return redirect("/login")
 
+    valid_categories = ["Men", "Women", "Pairs", "Ice Dance"]
+    if category not in valid_categories:
+        return redirect("/draft/Men")
+
+    conn = get_db()
+    user = conn.execute("SELECT swaps_remaining, has_drafted FROM users WHERE id=?", (user_id,)).fetchone()
+    swaps = user[0] if user[0] is not None else 3
+    has_drafted = user[1] if user[1] is not None else 0
+
+    # Get current pick for this category
+    current = conn.execute("SELECT name, nation FROM team WHERE user_id=? AND category=?", (user_id, category)).fetchone()
+    current_name = current[0] if current else None
+    current_nation = current[1] if current else None
+    conn.close()
+
+    if has_drafted and swaps <= 0:
+        return f"""<!DOCTYPE html><html><head><title>Team Locked</title>{STYLE}</head>
+        <body>{nav(user_id, username)}
+        <div class="page">
+            <h1>Team Locked</h1>
+            <p class="subtitle">You have used all 3 of your swaps for this season.</p>
+            <a href="/team" class="btn">View My Team</a>
+        </div>
+        </body></html>"""
+
     if request.method == "POST":
-        picks = {}
-        total_cost = 0
+        pick = request.form.get("pick")
+        if not pick:
+            return redirect(f"/draft/{category}?error=1")
+
+        name, nation = pick.split("|", 1)
+
         conn = get_db()
-        for category in ["Men", "Women", "Pairs", "Ice Dance"]:
-            pick = request.form.get(category)
-            if pick:
-                name, nation = pick.split("|", 1)
-                row = conn.execute("SELECT cost FROM skater_costs WHERE name=?", (name,)).fetchone()
-                cost = row[0] if row else 0
-                total_cost += cost
-                picks[category] = (name, nation)
 
-        if total_cost > 130:
+        # Check budget — get costs of other picks plus this one
+        other_costs = conn.execute("""
+            SELECT COALESCE(SUM(s.cost), 0)
+            FROM team t
+            LEFT JOIN skater_costs s ON t.name = s.name
+            WHERE t.user_id=? AND t.category != ?
+        """, (user_id, category)).fetchone()[0]
+
+        this_cost = conn.execute("SELECT cost FROM skater_costs WHERE name=?", (name,)).fetchone()
+        this_cost = this_cost[0] if this_cost else 0
+
+        if other_costs + this_cost > 130:
             conn.close()
-            return redirect("/draft?error=1")
+            return redirect(f"/draft/{category}?error=1")
 
-        for category, (name, nation) in picks.items():
-            conn.execute("INSERT OR REPLACE INTO team VALUES (?, ?, ?, ?)", (user_id, category, name, nation))
+        conn.execute("INSERT OR REPLACE INTO team VALUES (?, ?, ?, ?)", (user_id, category, name, nation))
+
+        if has_drafted:
+            conn.execute("UPDATE users SET swaps_remaining = swaps_remaining - 1 WHERE id=?", (user_id,))
+        else:
+            # Check if all 4 categories are now picked — if so mark as drafted
+            picks_count = conn.execute("SELECT COUNT(*) FROM team WHERE user_id=?", (user_id,)).fetchone()[0]
+            if picks_count >= 4:
+                conn.execute("UPDATE users SET has_drafted = 1 WHERE id=?", (user_id,))
+
         conn.commit()
         conn.close()
         return redirect("/team")
 
-    skaters = get_all_skaters()
-    error = request.args.get("error")
-    error_html = '<p class="error">Over budget! Your team cannot exceed 130 points.</p>' if error else ""
+    error_html = '<p class="error">Over budget! This pick would exceed your 130 point budget.</p>' if request.args.get("error") else ""
 
+    if not has_drafted:
+        swap_html = '<div class="swap-info">🎉 Initial draft — no swaps will be used!</div>'
+    else:
+        swap_color = "none" if swaps == 1 else "low" if swaps == 2 else ""
+        swap_html = f'<div class="swap-info">⚡ Swaps remaining: <span class="swap-count {swap_color}">{swaps}</span> / 3 &nbsp;—&nbsp; saving will use 1 swap</div>'
+
+    current_html = f'<div class="current-pick">Current pick: <strong>{current_name} ({current_nation})</strong></div>' if current_name else '<div class="current-pick">No pick yet for this discipline.</div>'
+
+    skaters = get_all_skaters()
     cost_lookup = {}
-    nations_by_cat = {cat: set() for cat in ["Men", "Women", "Pairs", "Ice Dance"]}
+    nations = set()
+    skater_list = []
     for name, nation, cat, best_score, cost in skaters:
-        cost_lookup[f"{name}|{nation}"] = cost
-        nations_by_cat[cat].add(nation)
+        if cat == category:
+            cost_lookup[f"{name}|{nation}"] = cost
+            nations.add(nation)
+            skater_list.append({"name": name, "nation": nation, "cost": cost, "value": f"{name}|{nation}"})
 
     cost_json = json.dumps(cost_lookup)
-    skater_data = {}
-    for cat in ["Men", "Women", "Pairs", "Ice Dance"]:
-        skater_data[cat] = [
-            {"name": name, "nation": nation, "cost": cost, "value": f"{name}|{nation}"}
-            for name, nation, c, best_score, cost in skaters if c == cat
-        ]
-    skater_json = json.dumps(skater_data)
+    skater_json = json.dumps(skater_list)
+    current_value = f"{current_name}|{current_nation}" if current_name else ""
 
-    sections_html = ""
-    for category in ["Men", "Women", "Pairs", "Ice Dance"]:
-        nations = sorted(nations_by_cat[category])
-        nation_options = '<option value="">All Nations</option>' + "".join(
-            f'<option value="{n}">{n}</option>' for n in nations
-        )
-        sections_html += f"""
+    nation_options = '<option value="">All Nations</option>' + "".join(
+        f'<option value="{n}">{n}</option>' for n in sorted(nations)
+    )
+
+    return f"""<!DOCTYPE html><html><head><title>Draft {category}</title>{STYLE}</head>
+    <body>{nav(user_id, username)}
+    <div class="page">
+        <h1>Edit {category}</h1>
+        <p class="subtitle">Choose your {category} skater</p>
+        {swap_html}
+        {current_html}
+        {error_html}
         <div class="draft-section">
-            <h3>{category}</h3>
             <div class="filters">
-                <input type="text" id="search-{category}" placeholder="Search..." oninput="filterSkaters('{category}')">
-                <select id="nation-{category}" onchange="filterSkaters('{category}')">
-                    {nation_options}
-                </select>
-                <select id="cost-{category}" onchange="filterSkaters('{category}')">
+                <input type="text" id="search" placeholder="Search name..." oninput="filterSkaters()">
+                <select id="nation-filter" onchange="filterSkaters()">{nation_options}</select>
+                <select id="cost-filter" onchange="filterSkaters()">
                     <option value="">All Costs</option>
                     <option value="40">40 pts</option>
                     <option value="30">30 pts</option>
@@ -854,64 +937,42 @@ def draft():
                     <option value="10">10 pts</option>
                 </select>
             </div>
-            <select name="{category}" id="select-{category}" onchange="updateBudget()" size="7" class="skater-select"></select>
+            <form method="post">
+                <select name="pick" id="skater-select" size="10" class="skater-select" style="margin-bottom:16px;"></select>
+                <br>
+                <button type="submit" class="btn">Save Pick</button>
+                <a href="/team" class="btn btn-outline" style="margin-left:10px;">Cancel</a>
+            </form>
         </div>
-        """
-
-    return f"""<!DOCTYPE html><html><head><title>Draft Team</title>{STYLE}</head>
-    <body>{nav(user_id, username)}
-    <div class="page">
-        <h1>Draft Your Team</h1>
-        <p class="subtitle">Pick one skater from each discipline within your 130 point budget</p>
-        {error_html}
-        <div class="budget-counter">
-            Budget used: <span id="budget-used">0</span> / 130 pts
-        </div>
-        <form method="post" id="draft-form">
-            <div class="draft-grid">{sections_html}</div>
-            <button type="submit" class="btn">Save Team</button>
-        </form>
     </div>
     <script>
         const costs = {cost_json};
         const skaterData = {skater_json};
+        const currentValue = "{current_value}";
 
-        function filterSkaters(cat) {{
-            const search = document.getElementById("search-" + cat).value.toLowerCase();
-            const nation = document.getElementById("nation-" + cat).value;
-            const cost = document.getElementById("cost-" + cat).value;
-            const select = document.getElementById("select-" + cat);
-            const current = select.value;
+        function filterSkaters() {{
+            const search = document.getElementById("search").value.toLowerCase();
+            const nation = document.getElementById("nation-filter").value;
+            const cost = document.getElementById("cost-filter").value;
+            const select = document.getElementById("skater-select");
             select.innerHTML = "";
-            const filtered = skaterData[cat].filter(s =>
+
+            const filtered = skaterData.filter(s =>
                 (!search || s.name.toLowerCase().includes(search))
                 && (!nation || s.nation === nation)
                 && (!cost || s.cost === parseInt(cost))
             );
+
             for (const s of filtered) {{
                 const opt = document.createElement("option");
                 opt.value = s.value;
                 opt.textContent = s.name + " (" + s.nation + ") — " + s.cost + " pts";
-                if (s.value === current) opt.selected = true;
+                if (s.value === currentValue) opt.selected = true;
                 select.appendChild(opt);
             }}
-            updateBudget();
         }}
 
-        function updateBudget() {{
-            let total = 0;
-            for (const cat of ["Men", "Women", "Pairs", "Ice Dance"]) {{
-                const sel = document.getElementById("select-" + cat);
-                if (sel && sel.value) total += costs[sel.value] || 0;
-            }}
-            const el = document.getElementById("budget-used");
-            el.textContent = total;
-            el.className = total > 130 ? "over-budget" : "ok-budget";
-        }}
-
-        for (const cat of ["Men", "Women", "Pairs", "Ice Dance"]) {{
-            filterSkaters(cat);
-        }}
+        filterSkaters();
     </script>
     </body></html>"""
 
@@ -926,32 +987,56 @@ def team():
     total_cost = sum(cost or 0 for _, _, _, cost in picks)
     total_fantasy = sum(fantasy_points.get(name, 0) for _, name, _, _ in picks)
 
-    rows_html = "".join([
-        f'<tr><td>{category}</td><td>{name}</td><td>{nation}</td><td><span class="cost-badge">{cost or 0} pts</span></td><td>{fantasy_points.get(name, 0)}</td></tr>'
-        for category, name, nation, cost in picks
-    ])
-    if not rows_html:
-        rows_html = '<tr><td colspan="5" class="no-data">No picks yet — go to Draft to build your team!</td></tr>'
+    conn = get_db()
+    user = conn.execute("SELECT swaps_remaining, has_drafted FROM users WHERE id=?", (user_id,)).fetchone()
+    swaps = user[0] if user[0] is not None else 3
+    has_drafted = user[1] if user[1] is not None else 0
+    conn.close()
+
+    # Build picks dict for easy lookup
+    picks_by_cat = {cat: (name, nation, cost) for cat, name, nation, cost in picks}
+
+    rows_html = ""
+    for category in ["Men", "Women", "Pairs", "Ice Dance"]:
+        if category in picks_by_cat:
+            name, nation, cost = picks_by_cat[category]
+            pts = fantasy_points.get(name, 0)
+            if has_drafted and swaps <= 0:
+                edit_btn = '<span style="color:var(--text-dim);font-size:0.8em;">🔒 Locked</span>'
+            else:
+                edit_btn = f'<a href="/draft/{category}" class="btn btn-small btn-outline">Edit</a>'
+            rows_html += f'<tr><td>{category}</td><td>{name}</td><td>{nation}</td><td><span class="cost-badge">{cost or 0} pts</span></td><td>{pts}</td><td>{edit_btn}</td></tr>'
+        else:
+            rows_html += f'<tr><td>{category}</td><td colspan="4" style="color:var(--text-dim);">No pick yet</td><td><a href="/draft/{category}" class="btn btn-small">Draft</a></td></tr>'
+
+    if has_drafted and swaps <= 0:
+        swap_status = '<p style="color:#ff6b6b;margin-bottom:16px;">🔒 Your team is locked — no swaps remaining.</p>'
+    elif has_drafted:
+        swap_color = "none" if swaps == 1 else "low" if swaps == 2 else ""
+        swap_status = f'<div class="swap-info" style="margin-bottom:20px;">⚡ Swaps remaining: <span class="swap-count {swap_color}">{swaps}</span> / 3</div>'
+    else:
+        swap_status = '<div class="swap-info" style="margin-bottom:20px;">🎉 Draft your team to get started!</div>'
 
     return f"""<!DOCTYPE html><html><head><title>My Team</title>{STYLE}</head>
     <body>{nav(user_id, username)}
     <div class="page">
         <h1>{username}'s Team</h1>
         <p class="subtitle">Your fantasy squad and points earned</p>
+        {swap_status}
         <div class="card">
             <table>
-                <thead><tr><th>Discipline</th><th>Skater</th><th>Nation</th><th>Cost</th><th>Fantasy Pts</th></tr></thead>
+                <thead><tr><th>Discipline</th><th>Skater</th><th>Nation</th><th>Cost</th><th>Fantasy Pts</th><th></th></tr></thead>
                 <tbody>
                     {rows_html}
                     <tr class="total-row">
                         <td colspan="3">Total</td>
                         <td>{total_cost} / 130 pts</td>
                         <td>{total_fantasy} pts</td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <a href="/draft" class="btn">Edit Team</a>
     </div>
     </body></html>"""
 
@@ -984,7 +1069,7 @@ def leaderboard():
     <body>{nav(user_id, username)}
     <div class="page">
         <h1>Leaderboard</h1>
-        <p class="subtitle">How your team stacks up</p>
+        <p class="subtitle">How your league stacks up</p>
         <div class="card">
             <table>
                 <thead><tr><th>Rank</th><th>User</th><th>Fantasy Points</th></tr></thead>
@@ -994,4 +1079,6 @@ def leaderboard():
     </div>
     </body></html>"""
 
-app.run(debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
