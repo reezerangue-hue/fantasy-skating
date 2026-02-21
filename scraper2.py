@@ -2,13 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 
-competitions = [
+competitions = list(dict.fromkeys([
     "https://results.isu.org/results/season2526/gpfra2025/",
     "https://results.isu.org/results/season2425/wc2025/",
     "https://results.isu.org/results/season2526/owg2026/",
     "https://results.isu.org/results/season2425/gpusa2024/",
-    "https://results.isu.org/results/season2425/gpfra2024/",
-]
+]))
 
 SEGMENT_MAP = {
     1: ("Men", "Short Program"),
@@ -43,7 +42,8 @@ cursor.execute("""
         place INTEGER,
         name TEXT,
         nation TEXT,
-        score REAL
+        score REAL,
+        UNIQUE(competition, category, segment, name)
     )
 """)
 
@@ -68,7 +68,7 @@ def scrape_segment(comp_url, comp_name, seg_num):
             if name and name not in seen and place.isdigit():
                 seen.add(name)
                 try:
-                    cursor.execute("INSERT INTO results2 VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    cursor.execute("INSERT OR IGNORE INTO results2 VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (comp_name, category, segment, int(place), name, nation, float(score)))
                     print(f"    {place}. {name} - {score}")
                     count += 1
