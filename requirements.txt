@@ -1,0 +1,4 @@
+flask
+werkzeug
+beautifulsoup4
+requests
