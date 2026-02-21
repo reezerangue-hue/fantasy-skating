@@ -1,6 +1,8 @@
 import sqlite3
+import os
 
-conn = sqlite3.connect(r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\skating.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skating.db")
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute("DROP TABLE IF EXISTS skater_costs")

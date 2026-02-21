@@ -1,5 +1,8 @@
 import subprocess
 import sys
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 scripts = [
     "scraper2.py",
@@ -8,7 +11,7 @@ scripts = [
 ]
 
 for script in scripts:
-    path = r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\\" + script
+    path = os.path.join(BASE_DIR, script)
     print(f"\n{'='*40}")
     print(f"Running {script}...")
     print('='*40)

@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import sqlite3
+import os
 
 categories = {
     "Men": "https://results.isu.org/ws/ws/wsmen.htm",
@@ -19,7 +20,8 @@ def normalize_name(name):
         return " ".join(first) + " " + " ".join(last)
     return name
 
-conn = sqlite3.connect(r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\skating.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skating.db")
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute("""

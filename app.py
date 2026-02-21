@@ -19,12 +19,53 @@ DEFAULT_AVATAR = '⛸️'
 
 def migrate_db():
     conn = get_db()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            bio TEXT DEFAULT '',
+            avatar TEXT DEFAULT '⛸️'
+        );
+        CREATE TABLE IF NOT EXISTS team (
+            user_id INTEGER,
+            category TEXT,
+            name TEXT,
+            nation TEXT,
+            PRIMARY KEY (user_id, category)
+        );
+        CREATE TABLE IF NOT EXISTS results2 (
+            competition TEXT,
+            category TEXT,
+            segment TEXT,
+            place INTEGER,
+            name TEXT,
+            nation TEXT,
+            score REAL,
+            UNIQUE(competition, category, segment, name)
+        );
+        CREATE TABLE IF NOT EXISTS world_rankings (
+            category TEXT,
+            rank INTEGER,
+            name TEXT,
+            country TEXT,
+            points INTEGER,
+            PRIMARY KEY (category, name)
+        );
+        CREATE TABLE IF NOT EXISTS skater_costs (
+            name TEXT PRIMARY KEY,
+            category TEXT,
+            nation TEXT,
+            best_score REAL,
+            cost INTEGER
+        );
+    """)
     for col, default in [("bio", "''"), ("avatar", "'⛸️'")]:
         try:
             conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
-            conn.commit()
         except Exception:
             pass
+    conn.commit()
     conn.close()
 
 migrate_db()
