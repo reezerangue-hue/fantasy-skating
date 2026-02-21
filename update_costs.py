@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect("skating.db")
+conn = sqlite3.connect(r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\skating.db")
 cursor = conn.cursor()
 
 cursor.execute("DROP TABLE IF EXISTS skater_costs")

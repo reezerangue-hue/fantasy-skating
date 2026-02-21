@@ -19,7 +19,7 @@ def normalize_name(name):
         return " ".join(first) + " " + " ".join(last)
     return name
 
-conn = sqlite3.connect("skating.db")
+conn = sqlite3.connect(r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\skating.db")
 cursor = conn.cursor()
 
 cursor.execute("""
