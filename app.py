@@ -152,6 +152,7 @@ def nav(user_id, username):
     """
 
 STYLE = """
+<meta charset="utf-8">
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap');
 
