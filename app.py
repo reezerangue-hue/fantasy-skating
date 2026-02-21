@@ -15,6 +15,22 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+_ISU_TO_ALPHA2 = {
+    'ARM': 'AM', 'AUS': 'AU', 'AUT': 'AT', 'AZE': 'AZ', 'BEL': 'BE',
+    'BUL': 'BG', 'CAN': 'CA', 'CHN': 'CN', 'CZE': 'CZ', 'ESP': 'ES',
+    'EST': 'EE', 'FIN': 'FI', 'FRA': 'FR', 'GBR': 'GB', 'GEO': 'GE',
+    'GER': 'DE', 'HUN': 'HU', 'ISR': 'IL', 'ITA': 'IT', 'JPN': 'JP',
+    'KAZ': 'KZ', 'KOR': 'KR', 'LAT': 'LV', 'LTU': 'LT', 'MEX': 'MX',
+    'NED': 'NL', 'POL': 'PL', 'ROU': 'RO', 'SUI': 'CH', 'SVK': 'SK',
+    'SWE': 'SE', 'TPE': 'TW', 'UKR': 'UA', 'USA': 'US', 'UZB': 'UZ',
+}
+
+def flag(code):
+    alpha2 = _ISU_TO_ALPHA2.get(code)
+    if not alpha2:
+        return code
+    return ''.join(chr(0x1F1E6 + ord(c) - ord('A')) for c in alpha2)
+
 def get_competitions():
     conn = get_db()
     rows = conn.execute("SELECT DISTINCT competition FROM results2").fetchall()
@@ -579,7 +595,7 @@ def landing():
     medals = ["🥇", "🥈", "🥉"]
     for cat, rows in by_cat.items():
         rows_html = "".join([
-            f'<tr><td>{medals[i] if i < 3 else ""}</td><td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td></tr>'
+            f'<tr><td>{medals[i] if i < 3 else ""}</td><td>{r[2]}</td><td>{flag(r[3])}</td><td>{r[4]}</td></tr>'
             for i, r in enumerate(rows)
         ])
         recent_cards += f"""
@@ -679,7 +695,7 @@ def results():
             current_segment = segment
             rows_html += f'<tr class="segment-header"><td colspan="4">{segment}</td></tr>'
         place_class = f"place-{place}" if place <= 3 else ""
-        rows_html += f'<tr class="{place_class}"><td>{place}</td><td><a href="/skater/{name}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'\'">{name}</a></td><td>{nation}</td><td>{score}</td></tr>'
+        rows_html += f'<tr class="{place_class}"><td>{place}</td><td><a href="/skater/{name}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'\'">{name}</a></td><td>{flag(nation)}</td><td>{score}</td></tr>'
 
     return f"""<!DOCTYPE html><html><head><title>Results</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -792,7 +808,7 @@ def roster():
         for c in ["Men", "Women", "Pairs", "Ice Dance"]
     ])
     rows_html = "".join([
-        f'<tr><td><a href="/skater/{name}" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'var(--text)\'">{name}</a></td><td>{nation}</td><td>{best_score or "—"}</td><td><span class="cost-badge">{cost} pts</span></td></tr>'
+        f'<tr><td><a href="/skater/{name}" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color=\'var(--ice-blue)\'" onmouseout="this.style.color=\'var(--text)\'">{name}</a></td><td>{flag(nation)}</td><td>{best_score or "—"}</td><td><span class="cost-badge">{cost} pts</span></td></tr>'
         for name, nation, category, best_score, cost in skaters if category == selected_cat and best_score and best_score > 0
     ])
     return f"""<!DOCTYPE html><html><head><title>Skater Roster</title>{STYLE}</head>
@@ -897,7 +913,7 @@ def draft(category):
         swap_color = "none" if swaps == 1 else "low" if swaps == 2 else ""
         swap_html = f'<div class="swap-info">⚡ Swaps remaining: <span class="swap-count {swap_color}">{swaps}</span> / 3 &nbsp;—&nbsp; saving will use 1 swap</div>'
 
-    current_html = f'<div class="current-pick">Current pick: <strong>{current_name} ({current_nation})</strong></div>' if current_name else '<div class="current-pick">No pick yet for this discipline.</div>'
+    current_html = f'<div class="current-pick">Current pick: <strong>{current_name} {flag(current_nation)}</strong></div>' if current_name else '<div class="current-pick">No pick yet for this discipline.</div>'
 
     skaters = get_all_skaters()
     cost_lookup = {}
@@ -907,7 +923,7 @@ def draft(category):
         if cat == category:
             cost_lookup[f"{name}|{nation}"] = cost
             nations.add(nation)
-            skater_list.append({"name": name, "nation": nation, "cost": cost, "value": f"{name}|{nation}"})
+            skater_list.append({"name": name, "nation": nation, "flag": flag(nation), "cost": cost, "value": f"{name}|{nation}"})
 
     cost_json = json.dumps(cost_lookup)
     skater_json = json.dumps(skater_list)
@@ -966,7 +982,7 @@ def draft(category):
             for (const s of filtered) {{
                 const opt = document.createElement("option");
                 opt.value = s.value;
-                opt.textContent = s.name + " (" + s.nation + ") — " + s.cost + " pts";
+                opt.textContent = s.flag + " " + s.name + " — " + s.cost + " pts";
                 if (s.value === currentValue) opt.selected = true;
                 select.appendChild(opt);
             }}
@@ -1005,7 +1021,7 @@ def team():
                 edit_btn = '<span style="color:var(--text-dim);font-size:0.8em;">🔒 Locked</span>'
             else:
                 edit_btn = f'<a href="/draft/{category}" class="btn btn-small btn-outline">Edit</a>'
-            rows_html += f'<tr><td>{category}</td><td>{name}</td><td>{nation}</td><td><span class="cost-badge">{cost or 0} pts</span></td><td>{pts}</td><td>{edit_btn}</td></tr>'
+            rows_html += f'<tr><td>{category}</td><td>{name}</td><td>{flag(nation)}</td><td><span class="cost-badge">{cost or 0} pts</span></td><td>{pts}</td><td>{edit_btn}</td></tr>'
         else:
             rows_html += f'<tr><td>{category}</td><td colspan="4" style="color:var(--text-dim);">No pick yet</td><td><a href="/draft/{category}" class="btn btn-small">Draft</a></td></tr>'
 
@@ -1121,7 +1137,7 @@ def skater_profile(name):
             <span style="color:var(--text-dim);"> / {category}</span>
         </p>
         <h1>{name}</h1>
-        <p class="subtitle">{nation} &middot; {category}</p>
+        <p class="subtitle">{flag(nation)} {nation} &middot; {category}</p>
         {stats_html}
         <h2>Competition Results</h2>
         <div class="card">
