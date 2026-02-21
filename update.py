@@ -8,7 +8,7 @@ scripts = [
 ]
 
 for script in scripts:
-    path = r"C:\Users\zfam4\OneDrive\Desktop\\" + script
+    path = r"C:\Users\zfam4\OneDrive\Desktop\fantasy-skating\\" + script
     print(f"\n{'='*40}")
     print(f"Running {script}...")
     print('='*40)
@@ -17,4 +17,4 @@ for script in scripts:
         print(f"ERROR: {script} failed! Stopping.")
         break
 
-print("\n✓ All done! Database is up to date.")
+print("\nAll done! Database is up to date.")

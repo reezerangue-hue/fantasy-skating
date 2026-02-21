@@ -3,10 +3,26 @@ from bs4 import BeautifulSoup
 import sqlite3
 
 competitions = list(dict.fromkeys([
+    # 2025-26 season
+    "https://results.isu.org/results/season2526/gpusa2025/",
+    "https://results.isu.org/results/season2526/gpcan2025/",
     "https://results.isu.org/results/season2526/gpfra2025/",
-    "https://results.isu.org/results/season2425/wc2025/",
+    "https://results.isu.org/results/season2526/gpchn2025/",
+    "https://results.isu.org/results/season2526/gpjpn2025/",
+    "https://results.isu.org/results/season2526/gpf2025/",
+    "https://results.isu.org/results/season2526/ec2026/",
+    "https://results.isu.org/results/season2526/fc2026/",
     "https://results.isu.org/results/season2526/owg2026/",
+    # 2024-25 season
     "https://results.isu.org/results/season2425/gpusa2024/",
+    "https://results.isu.org/results/season2425/gpcan2024/",
+    "https://results.isu.org/results/season2425/gpfra2024/",
+    "https://results.isu.org/results/season2425/gpchn2024/",
+    "https://results.isu.org/results/season2425/gpjpn2024/",
+    "https://results.isu.org/results/season2425/gpf2024/",
+    "https://results.isu.org/results/season2425/ec2025/",
+    "https://results.isu.org/results/season2425/fc2025/",
+    "https://results.isu.org/results/season2425/wc2025/",
 ]))
 
 SEGMENT_MAP = {
